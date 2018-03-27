@@ -1,0 +1,10 @@
+[TOKEN]!
+[GE]
+[IF]
+[ELSE]
+[WHILE]
+[WORD]word
+[WORD]ifthis
+[WORD]elseThat
+[INTEGER]999
+[REAL]888.999000
