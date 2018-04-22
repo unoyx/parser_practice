@@ -192,6 +192,7 @@ private:
 public:
     Lexer() {}
     std::unique_ptr<Token> GetToken();
+    ~Lexer() {}
 };
 
 #endif

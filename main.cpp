@@ -1,6 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "Lexer.h"
+#include <memory>
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
+#include "lexer.h"
+#include "parser.h"
 
 using namespace std;
 
@@ -20,3 +24,18 @@ int main()
 #endif
 
 
+#ifdef PARSER_TEST
+using namespace llvm;
+int main()
+{
+    LLVMContext context;
+    Module module("major", context);
+
+    Parser parser(make_unique<Lexer>(), &module, &context);
+    parser.Parse();
+
+    module.dump();
+
+    return 0;
+}
+#endif
