@@ -21,6 +21,10 @@ enum class Tag
     TRUE,
     FALSE,
 
+    INT,
+    FLOAT,
+    BOOL,
+
     AND,
     OR,
     EQ,
@@ -189,10 +193,27 @@ class Lexer
 {
 private:
     bool match(const std::string s);
+    FILE *mInput;
 public:
-    Lexer() {}
+    Lexer():mInput(stdin) {}
+    Lexer(char *filename)
+    {
+        FILE *f = fopen(filename, "r");
+        mInput = f;
+    }
+
+    Lexer(const std::string &filename)
+    {
+        FILE *f = fopen(filename.c_str(), "r");
+        mInput = f;
+    }
     std::unique_ptr<Token> GetToken();
-    ~Lexer() {}
+    ~Lexer()
+    {
+        if (mInput != stdin) {
+            fclose(mInput);
+        }
+    }
 };
 
 #endif

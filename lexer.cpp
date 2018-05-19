@@ -9,13 +9,13 @@ bool Lexer::match(const string s)
 {
     int i = 0;
     while (i < s.size()) {
-        int c = fgetc(stdin);
+        int c = fgetc(mInput);
         if (c == s[i]) {
             ++i;
         } else {
-            ungetc(c, stdin);
+            ungetc(c, mInput);
             while (--i >= 0) {
-                ungetc(s[i], stdin);
+                ungetc(s[i], mInput);
             }
             return false;
         }
@@ -25,19 +25,19 @@ bool Lexer::match(const string s)
 
 unique_ptr<Token> Lexer::GetToken()
 {
-    char c = fgetc(stdin);
+    char c = fgetc(mInput);
     while (isspace(c)) {
-        c = fgetc(stdin);
+        c = fgetc(mInput);
     }
     if (isalpha(c)) {
         string id;
         id += c;
-        c = fgetc(stdin);
+        c = fgetc(mInput);
         while (isalnum(c) || c == '_') {
             id += c;
-            c = fgetc(stdin);
+            c = fgetc(mInput);
         }
-        ungetc(c, stdin);
+        ungetc(c, mInput);
         if (id == "if") {
             return unique_ptr<Token>(new Token(Tag::IF));
         } else if (id == "else") {
@@ -52,12 +52,18 @@ unique_ptr<Token> Lexer::GetToken()
             return unique_ptr<Token>(new Token(Tag::TRUE));
         } else if (id == "false") {
             return unique_ptr<Token>(new Token(Tag::FALSE));
+        } else if (id == "int") {
+            return unique_ptr<Token>(new Token(Tag::INT));
+        } else if (id == "float") {
+            return unique_ptr<Token>(new Token(Tag::FLOAT));
+        } else if (id == "bool") {
+            return unique_ptr<Token>(new Token(Tag::BOOL));
         }
         return unique_ptr<Token>(new Word(id));
     } else if (isdigit(c)) {
         int digit = 0;
         digit += (c - '0');
-        while (isdigit(c = fgetc(stdin))) {
+        while (isdigit(c = fgetc(mInput))) {
             digit *= 10;
             digit += (c - '0');
         }
@@ -65,65 +71,65 @@ unique_ptr<Token> Lexer::GetToken()
         if (c == '.') {
             double real = digit;
             double w = 0.1;
-            while (isdigit(c = fgetc(stdin))) {
+            while (isdigit(c = fgetc(mInput))) {
                 real += (c - '0') * w;
                 w *= 0.1;
             }
-            ungetc(c, stdin);
+            ungetc(c, mInput);
             // return real
             return unique_ptr<Token>(new Real(real));
         } else {
-            ungetc(c, stdin);
+            ungetc(c, mInput);
             // return intger
             return unique_ptr<Token>(new Integer(digit));
         }
     } else {
         if (c == '&') {
-            int n = fgetc(stdin);
+            int n = fgetc(mInput);
             if (n == '&') {
                 return unique_ptr<Token>(new Token(Tag::AND));
             } else {
-                ungetc(n, stdin);
+                ungetc(n, mInput);
                 return unique_ptr<Token>(new Token(c));
             }
         } else if (c == '|') {
-            int n = fgetc(stdin);
+            int n = fgetc(mInput);
             if (n == '|') {
                 return unique_ptr<Token>(new Token(Tag::OR));
             } else {
-                ungetc(n, stdin);
+                ungetc(n, mInput);
                 return unique_ptr<Token>(new Token(c));
             }
         } else if (c == '>') {
-            int n = fgetc(stdin);
+            int n = fgetc(mInput);
             if (n == '=') {
                 return unique_ptr<Token>(new Token(Tag::GE));
             } else {
-                ungetc(n, stdin);
+                ungetc(n, mInput);
                 return unique_ptr<Token>(new Token(c));
             }
         } else if (c == '<') {
-            int n = fgetc(stdin);
+            int n = fgetc(mInput);
             if (n == '=') {
                 return unique_ptr<Token>(new Token(Tag::LE));
             } else {
-                ungetc(n, stdin);
+                ungetc(n, mInput);
                 return unique_ptr<Token>(new Token(c));
             }
         } else if (c == '=') {
-            int n = fgetc(stdin);
+            int n = fgetc(mInput);
             if (n == '=') {
                 return unique_ptr<Token>(new Token(Tag::EQ));
             } else {
-                ungetc(n, stdin);
+                ungetc(n, mInput);
                 return unique_ptr<Token>(new Token(c));
             }
         } else if (c == '!') {
-            int n = fgetc(stdin);
+            int n = fgetc(mInput);
             if (n == '=') {
                 return unique_ptr<Token>(new Token(Tag::NE));
             } else {
-                ungetc(n, stdin);
+                ungetc(n, mInput);
                 return unique_ptr<Token>(new Token(c));
             }
         } else {

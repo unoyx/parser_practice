@@ -3,6 +3,7 @@
 #include <memory>
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Support/raw_ostream.h"
 #include "lexer.h"
 #include "parser.h"
 
@@ -26,15 +27,23 @@ int main()
 
 #ifdef PARSER_TEST
 using namespace llvm;
-int main()
+int main(int argc, char *argv[])
 {
     LLVMContext context;
     Module module("major", context);
 
-    Parser parser(make_unique<Lexer>(), &module, &context);
+    Lexer *lexer = nullptr;
+    if (argc > 1) {
+        lexer = new Lexer(argv[1]);
+    } else {
+        lexer = new Lexer();
+    }
+    Parser parser(unique_ptr<Lexer>(lexer), &module, &context);
+
     parser.Parse();
 
-    module.dump();
+    module.print(errs(), nullptr);
+    // module.dump();
 
     return 0;
 }

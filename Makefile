@@ -3,7 +3,7 @@ PWD:=$(shell pwd)
 LLVM_CONFIG:=/Users/unoyx/src/llvm/build/bin/llvm-config
 LD_FLAGS:=$(shell ${LLVM_CONFIG} --ldflags --system-libs --libs)
 
-CPP_FLAGS=-Wall -std=c++11 -g -O0 $(shell ${LLVM_CONFIG} --cxxflags)
+CPP_FLAGS=-Wall -std=c++11 -g -O0 $(shell ${LLVM_CONFIG} --cxxflags) -DDEBUG
 
 SRC=$(wildcard *.cpp)
 OBJ=$(SRC:.cpp=.o)
