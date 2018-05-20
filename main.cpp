@@ -29,8 +29,6 @@ int main()
 using namespace llvm;
 int main(int argc, char *argv[])
 {
-    LLVMContext context;
-    Module module("major", context);
 
     Lexer *lexer = nullptr;
     if (argc > 1) {
@@ -38,11 +36,13 @@ int main(int argc, char *argv[])
     } else {
         lexer = new Lexer();
     }
-    Parser parser(unique_ptr<Lexer>(lexer), &module, &context);
+    Parser parser(lexer);
+    // Parser parser(lexer);
 
     parser.Parse();
 
-    module.print(errs(), nullptr);
+    parser.Dump();
+
     // module.dump();
 
     return 0;

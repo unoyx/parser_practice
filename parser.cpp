@@ -24,15 +24,19 @@ using namespace llvm;
 #define debug_print(...)
 #endif
 
-Parser::Parser(std::unique_ptr<Lexer> lex, llvm::Module *m, llvm::LLVMContext *c)
-    :mBuilder(new IRBuilder<>(*c)), mLex(std::move(lex)), mModule(m), mContext(c)
+Parser::Parser(Lexer *lex)
+    :mLex(lex)
 {
+    mModule = new Module("major", mContext);
+    mBuilder = new IRBuilder<>(mContext);
     move();
 }
 
 Parser::~Parser()
 {
+    delete mLex;
     delete mBuilder;
+    delete mModule;
 }
 
 Tag Parser::getTokenTag()
@@ -77,8 +81,9 @@ double Parser::getFloat()
 
 void Parser::Parse()
 {
-    Function *mMain = cast<Function>(mModule->getOrInsertFunction("main", Type::getVoidTy(*mContext)));
+    mMain = cast<Function>(mModule->getOrInsertFunction("main", Type::getVoidTy(mContext)));
     block(true);
+
 }
 
 void Parser::block(bool beginBlock)
@@ -86,9 +91,11 @@ void Parser::block(bool beginBlock)
     debug_print("enter block\n");
     consume('{');
     if (beginBlock) {
-        BasicBlock *block = BasicBlock::Create(*mContext, "block", mMain);
+        BasicBlock *block = BasicBlock::Create(mContext, "block", mMain);
         mBuilder->SetInsertPoint(block);
     }
+    mModule->dump();
+
     decls();
     stmts();
     consume('}');
@@ -115,9 +122,9 @@ Type* Parser::type()
     Type *t = nullptr;
     if (getTokenTag() == Tag::INT ||
         getTokenTag() == Tag::BOOL) {
-        t = Type::getInt32Ty(*mContext);
+        t = Type::getInt32Ty(mContext);
     } else if (getTokenTag() == Tag::FLOAT) {
-        t = Type::getFloatTy(*mContext);
+        t = Type::getFloatTy(mContext);
     } else {
         return nullptr;
     }
@@ -156,20 +163,22 @@ void Parser::stmt()
         consume('(');
         Value *boolVal = boolExp();
         consume(')');
-        BasicBlock *trueBlock = BasicBlock::Create(*mContext, "true_part", mMain);
+        BasicBlock *trueBlock = BasicBlock::Create(mContext, "true_part", mMain);
         mBuilder->SetInsertPoint(trueBlock);
         stmt();
-        BasicBlock *endBlock = BasicBlock::Create(*mContext, "end_part", mMain);
+        BasicBlock *endBlock = BasicBlock::Create(mContext, "end_part", mMain);
         mBuilder->CreateBr(endBlock);
         if (getTokenTag() == Tag::ELSE) {
-            BasicBlock *falseBlock = BasicBlock::Create(*mContext, "false_part", mMain);
+            BasicBlock *falseBlock = BasicBlock::Create(mContext, "false_part", mMain);
             mBuilder->SetInsertPoint(falseBlock);
             stmt();
-            BranchInst::Create(trueBlock, falseBlock, boolVal, b);
             mBuilder->SetInsertPoint(b);
             mBuilder->CreateCondBr(boolVal, trueBlock, falseBlock);
             mBuilder->SetInsertPoint(falseBlock);
             mBuilder->CreateBr(endBlock);
+        } else {
+            mBuilder->SetInsertPoint(b);
+            mBuilder->CreateCondBr(boolVal, trueBlock, endBlock);
         }
     } else if (mToken->GetTag() == Tag::TOKEN) {
         if (mToken->GetToken() == '{') {
@@ -179,8 +188,8 @@ void Parser::stmt()
         AllocaInst *slot = location();
         consume('=');
         Value *n = boolExp();
-        consume(';');
         mBuilder->CreateStore(n, slot);
+        consume(';');
     }
 }
 
@@ -236,17 +245,19 @@ Value *Parser::join()
 Value *Parser::factor()
 {
     if (getTokenTag() == Tag::INTEGER) {
+        int i = getInteger();
         move();
-        return ConstantInt::get(IntegerType::get(*mContext, 32), getInteger(), true);
+        return ConstantInt::get(IntegerType::get(mContext, 32), i, true);
     } else if (getTokenTag() == Tag::REAL) {
+        float f = getFloat();
         move();
-        return ConstantFP::get(*mContext, APFloat(getFloat()));
+        return ConstantFP::get(mContext, APFloat(f));
     } else if (getTokenTag() == Tag::TRUE) {
         move();
-        return ConstantInt::getTrue(*mContext);
+        return ConstantInt::getTrue(mContext);
     } else if (getTokenTag() == Tag::FALSE) {
         move();
-        return ConstantInt::getFalse(*mContext);
+        return ConstantInt::getFalse(mContext);
     } else if (getToken() == '(') {
         consume('(');
         auto ret = boolExp();

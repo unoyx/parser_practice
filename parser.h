@@ -13,16 +13,20 @@
 class Parser
 {
 public:
-    Parser(std::unique_ptr<Lexer> lex, llvm::Module *m, llvm::LLVMContext *c);
+    Parser(Lexer *lex);
     void Parse();
     ~Parser();
+    void Dump()
+    {
+        mModule->dump();
+    }
 
 private:
+    llvm::LLVMContext mContext;
     llvm::Module *mModule;
-    llvm::LLVMContext *mContext;
     llvm::IRBuilder<> *mBuilder;
     llvm::Function *mMain;
-    std::unique_ptr<Lexer> mLex;
+    Lexer *mLex;
     std::unique_ptr<Token> mToken;
     std::map<std::string, llvm::AllocaInst*> mIDs;
 
