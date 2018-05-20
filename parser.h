@@ -39,6 +39,11 @@ private:
     llvm::AllocaInst *location();
     llvm::Value *boolExp();
     llvm::Value *join();
+    llvm::Value *equality();
+    llvm::Value *rel();
+    llvm::Value *arthExpr();
+    llvm::Value *term();
+    llvm::Value *unary();
     llvm::Value *factor();
 
     void move();

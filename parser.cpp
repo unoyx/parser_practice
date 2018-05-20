@@ -169,6 +169,7 @@ void Parser::stmt()
         BasicBlock *endBlock = BasicBlock::Create(mContext, "end_part", mMain);
         mBuilder->CreateBr(endBlock);
         if (getTokenTag() == Tag::ELSE) {
+            move();
             BasicBlock *falseBlock = BasicBlock::Create(mContext, "false_part", mMain);
             mBuilder->SetInsertPoint(falseBlock);
             stmt();
@@ -235,11 +236,120 @@ AllocaInst *Parser::location()
 
 Value *Parser::boolExp()
 {
-    return factor();
+    Value *lhs = join();
+    Value *rhs = nullptr;
+    while (getTokenTag() == Tag::OR) {
+        move();
+        rhs = join();
+        lhs = mBuilder->CreateOr(lhs, rhs);
+    }
+    return lhs;
 }
 
 Value *Parser::join()
 {
+    Value *lhs = equality();
+    Value *rhs = nullptr;
+    while (getTokenTag() == Tag::AND) {
+        move();
+        rhs = equality();
+        lhs = mBuilder->CreateAnd(lhs, rhs);
+    }
+    return lhs;
+}
+
+Value *Parser::equality()
+{
+    Value *lhs = rel();
+    Value *rhs = nullptr;
+    while (getTokenTag() == Tag::EQ || getTokenTag() == Tag::NE) {
+        if (getTokenTag() == Tag::EQ) {
+            move();
+            rhs = rel();
+            lhs = mBuilder->CreateICmp(CmpInst::ICMP_EQ, lhs, rhs);
+        } else if (getTokenTag() == Tag::NE) {
+            move();
+            rhs = rel();
+            lhs = mBuilder->CreateICmp(CmpInst::ICMP_NE, lhs, rhs);
+        }
+    }
+    return lhs;
+}
+
+Value *Parser::rel()
+{
+    Value *lhs = arthExpr();
+    Value *rhs = nullptr;
+    if (getToken() == '<') {
+        move();
+        rhs = arthExpr();
+        return mBuilder->CreateICmp(CmpInst::ICMP_SLT, lhs, rhs);
+    } else if (getToken() == '>') {
+        move();
+        rhs = arthExpr();
+        return mBuilder->CreateICmp(CmpInst::ICMP_SGT, lhs, rhs);
+    } else if (getTokenTag() == Tag::LE) {
+        move();
+        rhs = arthExpr();
+        return mBuilder->CreateICmp(CmpInst::ICMP_SLE, lhs, rhs);
+    } else if (getTokenTag() == Tag::GE) {
+        move();
+        rhs = arthExpr();
+        return mBuilder->CreateICmp(CmpInst::ICMP_SGE, lhs, rhs);
+    } else {
+        return lhs;
+    }
+}
+
+Value *Parser::arthExpr()
+{
+    Value *lhs = unary();
+    Value *rhs = nullptr;
+    while (getToken() == '+' || getToken() == '-') {
+        if (getToken() == '+') {
+            move();
+            rhs = unary();
+            lhs = mBuilder->CreateAdd(lhs, rhs);
+        } else if (getToken() == '-') {
+            move();
+            rhs = unary();
+            lhs = mBuilder->CreateSub(lhs, rhs);
+        }
+    }
+    return lhs;
+}
+
+Value *Parser::term()
+{
+    Value *lhs = unary();
+    Value *rhs = nullptr;
+    while (getToken() == '*' || getToken() == '/') {
+        if (getToken() == '*') {
+            move();
+            rhs = unary();
+            lhs = mBuilder->CreateMul(lhs, rhs);
+        } else if (getToken() == '/') {
+            move();
+            rhs = unary();
+            lhs = mBuilder->CreateSDiv(lhs, rhs);
+        }
+    }
+    return lhs;
+}
+
+Value *Parser::unary()
+{
+    if (getToken() == '!') {
+        move();
+        Value *ret = unary();
+        mBuilder->CreateNot(ret);
+    } else if (getToken() == '-') {
+        move();
+        Value *ret = unary();
+        mBuilder->CreateNeg(ret);
+    } else {
+        return factor();
+    }
 }
 
 Value *Parser::factor()
@@ -264,7 +374,8 @@ Value *Parser::factor()
         consume(')');
         return ret;
     } else {
-        return location();
+        Value *ptr =  location();
+        return mBuilder->CreateLoad(ptr);
     }
 }
 
