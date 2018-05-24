@@ -189,6 +189,9 @@ void Parser::stmt()
         AllocaInst *slot = location();
         consume('=');
         Value *n = boolExp();
+        if (slot->getAllocatedType() != n->getType()) {
+            n = mBuilder->CreateBitCast(n, slot->getAllocatedType());
+        }
         mBuilder->CreateStore(n, slot);
         consume(';');
     }
