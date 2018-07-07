@@ -11,6 +11,8 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
+#include "llvm/IR/TypeBuilder.h"
+#include "llvm/Support/Casting.h"
 
 using namespace std;
 using namespace llvm;
@@ -29,6 +31,18 @@ Parser::Parser(Lexer *lex)
 {
     mModule = new Module("major", mContext);
     mBuilder = new IRBuilder<>(mContext);
+
+    Constant *zero = Constant::getNullValue(IntegerType::getInt32Ty(mContext));
+    Constant *indices[] = {zero, zero};
+
+    Constant *intStr = ConstantDataArray::getString(mContext, "%d\n");
+    GlobalVariable* gIntStr = new GlobalVariable(*mModule, intStr->getType(), true,
+                                              GlobalValue::InternalLinkage, intStr);
+    mPrintIntStr = ConstantExpr::getGetElementPtr(intStr->getType(), gIntStr, indices, true);
+    Constant *floatStr = ConstantDataArray::getString(mContext, "%f\n");
+    GlobalVariable* gFloatStr = new GlobalVariable(*mModule, floatStr->getType(), true,
+                                                 GlobalValue::InternalLinkage, floatStr);
+    mPrintFloatStr = ConstantExpr::getGetElementPtr(floatStr->getType(), gFloatStr, indices, true);
     move();
 }
 
@@ -52,7 +66,8 @@ int Parser::getToken()
 string Parser::getWord()
 {
     if (mToken->GetTag() == Tag::WORD) {
-        auto w = static_cast<Word *>(mToken.get());
+        auto w = cast<Word>(mToken.get());
+        // auto w = static_cast<Word *>(mToken.get());
         auto ws = w->GetWord();
         return ws;
     }
@@ -62,7 +77,8 @@ string Parser::getWord()
 int Parser::getInteger()
 {
     if (mToken->GetTag() == Tag::INTEGER) {
-        auto i = static_cast<Integer *>(mToken.get());
+        auto i = cast<Integer>(mToken.get());
+        // auto i = static_cast<Integer *>(mToken.get());
         auto n = i->GetNum();
         return n;
     }
@@ -72,7 +88,8 @@ int Parser::getInteger()
 double Parser::getFloat()
 {
     if (mToken->GetTag() == Tag::REAL) {
-        auto r = static_cast<Real *>(mToken.get());
+        //auto r = static_cast<Real *>(mToken.get());
+        auto r = cast<Real>(mToken.get());
         auto f = r->GetReal();
         return f;
     }
@@ -83,7 +100,7 @@ void Parser::Parse()
 {
     mMain = cast<Function>(mModule->getOrInsertFunction("main", Type::getVoidTy(mContext)));
     block(true);
-
+    mBuilder->CreateRetVoid();
 }
 
 void Parser::block(bool beginBlock)
@@ -94,7 +111,6 @@ void Parser::block(bool beginBlock)
         BasicBlock *block = BasicBlock::Create(mContext, "block", mMain);
         mBuilder->SetInsertPoint(block);
     }
-    mModule->dump();
 
     decls();
     stmts();
@@ -181,19 +197,58 @@ void Parser::stmt()
             mBuilder->SetInsertPoint(b);
             mBuilder->CreateCondBr(boolVal, trueBlock, endBlock);
         }
+    } else if (getTokenTag() == Tag::WHILE) {
+        consume(Tag::WHILE);
+        consume('(');
+        BasicBlock *whileCond = BasicBlock::Create(mContext, "while_cond", mMain);
+        mBuilder->CreateBr(whileCond);
+        mBuilder->SetInsertPoint(whileCond);
+        Value *boolVal = boolExp();
+        consume(')');
+        BasicBlock *whileBlock = BasicBlock::Create(mContext, "while", mMain);
+        mBuilder->SetInsertPoint(whileBlock);
+        stmt();
+        mBuilder->CreateBr(whileCond);
+        BasicBlock *nextBlock = BasicBlock::Create(mContext, "next", mMain);
+        mBuilder->SetInsertPoint(whileCond);
+        mBuilder->CreateCondBr(boolVal, whileBlock, nextBlock);
+        mBuilder->SetInsertPoint(nextBlock);
     } else if (mToken->GetTag() == Tag::TOKEN) {
         if (mToken->GetToken() == '{') {
             block();
         }
     } else if (mToken->GetTag() == Tag::WORD) {
-        AllocaInst *slot = location();
-        consume('=');
-        Value *n = boolExp();
-        if (slot->getAllocatedType() != n->getType()) {
-            n = mBuilder->CreateBitCast(n, slot->getAllocatedType());
+        auto s = cast<Word>(mToken.get())->GetWord();
+        if (s == "print_int") {
+            move();
+            consume('(');
+            auto val = arthExpr();
+            consume(')');
+            vector<Value*> args = {mPrintIntStr, val};
+            FunctionType *printType = TypeBuilder<int(char*, ...), false>::get(mContext);
+            Function *func = cast<Function>(mModule->getOrInsertFunction("printf", printType));
+            mBuilder->CreateCall(func, args, "print_int");
+            consume(';');
+        } else if (s == "print_float") {
+            move();
+            consume('(');
+            auto val = arthExpr();
+            consume(')');
+            vector<Value*> args = {mPrintFloatStr, val};
+            FunctionType *printType = TypeBuilder<int(char*, ...), false>::get(mContext);
+            Function *func = cast<Function>(mModule->getOrInsertFunction("printf", printType));
+            mBuilder->CreateCall(func, args, "print_float");
+            consume(';');
+        } else {
+            AllocaInst *slot = location();
+            consume('=');
+            Value *n = boolExp();
+            if (slot->getAllocatedType() != n->getType()) {
+                n = mBuilder->CreateBitCast(n, slot->getAllocatedType());
+            }
+            mBuilder->CreateStore(n, slot);
+            consume(';');
         }
-        mBuilder->CreateStore(n, slot);
-        consume(';');
     }
 }
 
@@ -346,10 +401,12 @@ Value *Parser::unary()
         move();
         Value *ret = unary();
         mBuilder->CreateNot(ret);
+        return ret;
     } else if (getToken() == '-') {
         move();
         Value *ret = unary();
         mBuilder->CreateNeg(ret);
+        return ret;
     } else {
         return factor();
     }
@@ -407,7 +464,8 @@ bool Parser::match(int c)
 bool Parser::match(string s)
 {
     if (mToken->GetTag() == Tag::WORD) {
-        auto w = static_cast<Word *>(mToken.get());
+        auto w = cast<Word>(mToken.get());
+        // auto w = static_cast<Word *>(mToken.get());
         auto ws = w->GetString();
         if (ws == s) {
             move();

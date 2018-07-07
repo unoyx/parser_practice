@@ -2,6 +2,7 @@
 #define LEXER_H
 #include <string>
 #include <memory>
+#include "llvm/Support/Casting.h"
 
 enum class Tag
 {
@@ -35,15 +36,29 @@ enum class Tag
 
 class Token
 {
+public:
+    enum TokenKind
+    {
+        TK_TOKEN,
+        TK_INTEGER,
+        TK_REAL,
+        TK_WORD,
+    };
 private:
     Tag mTag;
     int mToken;
+    const TokenKind mKind;
 public:
-    Token(int t)
-        :mTag(Tag::TOKEN), mToken(t) {}
+    TokenKind getKind() const
+    {
+        return mKind;
+    }
 
-    Token(Tag t)
-        :mTag(t), mToken(0) {}
+    Token(int t, TokenKind kind = TK_TOKEN)
+        :mTag(Tag::TOKEN), mToken(t), mKind(kind) {}
+
+    Token(Tag t, TokenKind kind = TK_TOKEN)
+        :mTag(t), mToken(0), mKind(kind) {}
 
     virtual ~Token() {}
 
@@ -124,6 +139,11 @@ public:
         ret += mToken;
         return ret;
     }
+
+    static bool getClassOf(const Token *t)
+    {
+        return t->getKind() >= TK_TOKEN && t->getKind() <= TK_WORD;
+    }
 };
 
 class Integer : public Token
@@ -132,7 +152,7 @@ private:
     int mNum;
 public:
     Integer(int num)
-        :Token(Tag::INTEGER), mNum(num){}
+        :Token(Tag::INTEGER, TK_INTEGER), mNum(num){}
 
     int GetNum()
     {
@@ -145,6 +165,11 @@ public:
         ret += std::to_string(mNum);
         return ret;
     }
+
+    static bool classof(const Token *t)
+    {
+        return t->getKind() >= TK_INTEGER;
+    }
 };
 
 class Real : public Token
@@ -153,7 +178,7 @@ private:
     double mReal;
 public:
     Real(double real)
-        :Token(Tag::REAL), mReal(real) {}
+        :Token(Tag::REAL, TK_REAL), mReal(real) {}
 
     double GetReal()
     {
@@ -166,6 +191,11 @@ public:
         ret += std::to_string(mReal);
         return ret;
     }
+
+    static bool classof(const Token *t)
+    {
+        return t->getKind() >= TK_REAL;
+    }
 };
 
 class Word : public Token
@@ -174,7 +204,7 @@ private:
     std::string mWord;
 public:
     Word(std::string s)
-        :Token(Tag::WORD), mWord(s) {}
+        :Token(Tag::WORD, TK_WORD), mWord(s) {}
 
     std::string GetWord()
     {
@@ -186,6 +216,11 @@ public:
         std::string ret = TagToString();
         ret += mWord;
         return ret;
+    }
+
+    static bool classof(const Token *t)
+    {
+        return t->getKind() >= TK_WORD;
     }
 };
 

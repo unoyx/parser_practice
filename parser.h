@@ -29,6 +29,8 @@ private:
     Lexer *mLex;
     std::unique_ptr<Token> mToken;
     std::map<std::string, llvm::AllocaInst*> mIDs;
+    llvm::Constant *mPrintIntStr;
+    llvm::Constant *mPrintFloatStr;
 
     void block(bool beginBlock = false);
     void decls();
